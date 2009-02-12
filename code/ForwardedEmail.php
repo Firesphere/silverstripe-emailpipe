@@ -1,12 +1,10 @@
 <?php
 /**
- * @package sscrm
- * @subpackage email
+ * @package emailpipe
  */
 class ForwardedEmail extends DataObject {
 	static $db = array(
 		'From' => 'Text', // contains original "From" value, please use "Members" relation to determine related members to this email
-		'To' => 'Text', // contains original "To" value, please use "Members" relation to determine related members to this email
 		'Subject' => 'Text',
 		'Body' => 'Text',
 		'DateSent' => 'SSDateTime' // a forwarded email might've been sent long before it got forwarded into the system

@@ -1,7 +1,6 @@
 <?php
 /**
- * @package sscrm
- * @subpackage email
+ * @package emailpipe
  */
 
 /**

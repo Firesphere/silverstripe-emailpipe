@@ -17,10 +17,10 @@
  * 
  * @todo Detect duplicate messages based on Message-Id MIME header
  * 
- * @package sscrm
- * @subpackage email
+ * @package emailpipe
  */
 require_once('../emailpipe/thirdparty/Mail_mimeDecode/Mail_mimeDecode.php');
+require_once('../emailpipe/code/ForwardedMail_mimeDecode.php');
 
 class ForwardedEmailHandler extends Controller {
 	
@@ -40,11 +40,22 @@ class ForwardedEmailHandler extends Controller {
 	static $email_class = 'ForwardedEmail';
 	
 	/**
+	 * @var string $member_relation_name
+	 */
+	static $member_relation_name = 'RelatedMembers';
+	
+	/**
 	 * @var string $sender_relation_class A many-many relation class (not the relation name)
 	 * present on the {@link ForwardedEmail} class. The relation name is fixed to
 	 * 'Senders' (see {@link ForwardedEmail}).
 	 */
 	static $member_relation_class = 'Member';
+	
+	/**
+	 * @var array $member_relation_search_fields Compares incoming email adresses to these fields
+	 * in order to determine on which Members the email should be attached.
+	 */
+	static $member_relation_search_fields = array('Email');
 	
 	function index() {
 		// Process the mail, breaking down its multiple
@@ -74,41 +85,37 @@ class ForwardedEmailHandler extends Controller {
 	 * - Use forwarded inline or attachement, and discard the body
 	 * 
 	 * @param Object $email Object based on Mail_mimeDecode
+	 * @return ForwardedEmail
 	 */
 	function processForwardedClientEmail($email) {
 		/*
 		// Fix subject, removing unnecessary "re's" 
 		$subject = ereg_replace('^ *[Rr][Ee]:? *\[[^\]+\]','Re:', $subject);
 		$subject = ereg_replace('^ *[Rr][Ee]:? *[Rr][Ee]:?','Re:', $subject);
-
-		// Remove quoted text from the body
-		$bodyLines = explode("\n", $body);
-		foreach($bodyLines as $lineNum => $line) {
-			if(ereg('^ *>', $line)) {
-				unset($bodyLines[$lineNum]);
-				if($lineNum > 0 && ereg('wrote: *$', $bodyLines[$lineNum-1])) unset($bodyLines[$lineNum-1]);
-				if($lineNum > 1 && ereg('wrote: *$', $bodyLines[$lineNum-2])) unset($bodyLines[$lineNum-2]);
-			}
-		}
-		$body = implode("\n", $bodyLines);
-		$body = trim(ereg_replace("\n\n+", "\n\n", $body));
 		*/
 		
 		// @todo Authentication token checking on "to" field
 		
-		$forwardedEmail = self::parseForwardedEmailBody($email);
-		
+		$plaintextPart = self::get_mimepart_by_type($email);
+		$forwardedEmail = self::parseForwardedEmailBody($plaintextPart->body);
+		$forwardedEmailBody = trim(self::reduce_quote_level($forwardedEmail->body));
+		$forwardedEmailSubject = self::remove_forward_prefix_from_subject($forwardedEmail->headers['subject']);
+
 		$emailClass = self::$email_class;
 		$emailObj = new $emailClass();
-		foreach($forwardedEmail->headers['from'] as $fromAddressWithName) {
-			$SQL_fromAddress = Convert::raw2sql(self::get_address_for_emailpart($fromAddressWithName));
-			$member = DataObject::get_one(self::$member_relation_class, sprintf('"Email" = \'%s\'', $SQL_fromAddress));
-			if($member) $emailObj->RelatedMembers()->add($member);
+		$emailObj->write();
+		
+		// add members for all matched criteria
+		$SQL_fromAddress = Convert::raw2sql(self::get_address_for_emailpart($forwardedEmail->headers['from']));
+		foreach(self::$member_relation_search_fields as $fieldName) {
+			$member = DataObject::get_one(self::$member_relation_class, sprintf('"%s" = \'%s\'', $fieldName, $SQL_fromAddress));
+			$relationName = self::$member_relation_name;
+			$emailObj->$relationName()->add($member);
 		}
-		$emailObj->From = $email->headers['from'];
-		$emailObj->To = $forwardedEmail->headers['from'];
-		$emailObj->Subject = $forwardedEmail->headers['subject'];
-		$emailObj->Body = $forwardedEmail->headers['body'];
+		
+		$emailObj->From = $SQL_fromAddress;
+		$emailObj->Subject = $forwardedEmailSubject;
+		$emailObj->Body = $forwardedEmailBody;
 		$emailObj->write();
 	}
 	
@@ -129,10 +136,23 @@ class ForwardedEmailHandler extends Controller {
 	 * plaintext MIME part email body.
 	 * 
 	 * @param string $emailBody
-	 * @return string
+	 * @return Object
 	 */
 	function parseForwardedEmailBody($emailBody) {
-		return $emailBody;
+		// Split original content from forwarded ones
+		$headers = array('From:', 'To:', 'Subject:');
+		$posFirstHeader = null;
+		foreach($headers as $header) {
+			$posHeader = strpos($emailBody, $header);
+			if($posHeader !== FALSE && ($posHeader < $posFirstHeader || !$posFirstHeader)) {
+				$posFirstHeader = $posHeader;
+			}
+		}
+		$originalEmailBody = substr($emailBody, 0, $posFirstHeader-1);
+		$forwardedEmailBody = substr($emailBody, $posFirstHeader, strlen($emailBody));
+
+		$decoder = new Mail_mimeDecode($forwardedEmailBody);
+		return $decoder->decode(array('include_bodies'=>true,'decode_bodies'=>true));
 	}
 	
 	/**
@@ -141,10 +161,10 @@ class ForwardedEmailHandler extends Controller {
 	 * @param string $emailStr
 	 * @return string
 	 */
-    static function get_address_for_emailpart($emailStr) {
-       if(strpos($emailA, '<') === false) return $emailStr;
+    static function get_address_for_emailpart($emailAdress) {
+       if(strpos($emailAdress, '<') === false) return $emailAdress;
        else {
-           ereg('<([^>]+)>|$', $email, $parts);
+           ereg('<([^>]+)>|$', $emailAdress, $parts);
            return $parts[1];
         }
     }
@@ -198,7 +218,36 @@ class ForwardedEmailHandler extends Controller {
 		}
 		return false;
 	}
+
+	/**
+	 * Reduce quoting through ">" character in a body of plaintext email content.
+	 * 
+	 * @return string
+	 */
+	static function reduce_quote_level($str, $levels = 1) {
+		$replace = '>' * $levels;
+		return preg_replace('/^' . $replace . '/', '', $str);
+	}
 	
+	/**
+	 * Removes "Fwd:" and "[Fwd:]" prefixes from email subjects
+	 * 
+	 * @param string $subject
+	 * @return string
+	 */
+	static function remove_forward_prefix_from_subject($subject) {
+		// Case '[Fwd: Subject]
+		if(preg_match('/^\s*\[Fwd\:\s*(.*)\]/', $subject, $matches)) {
+			return $matches[1];
+		}
+		
+		// Case 'Fwd:
+		if(preg_match('/^\s*Fwd\:\s*(.*)/', $subject, $matches)) {
+			return $matches[1];
+		}
+		
+		return $subject;
+	}
 }
 
 ?>

@@ -1,6 +1,5 @@
-Contact:
-   jamie:      
+Member:
+   johnclient:      
       FirstName: John
       Surname: Client
-      WorkEmail: clientwork@clientcompany.com
-      HomeEmail: clienthome@clientcompany.com
+      Email: work@clientcompany.com

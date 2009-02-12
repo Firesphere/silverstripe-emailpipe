@@ -1,7 +1,7 @@
 #!/usr/bin/php5 -q
 <?
 /**
- * Place this 
+ * @package emailpipe
  */
 define('ERROR_ADDRESS', 'ingo@silverstripe.com');
 
