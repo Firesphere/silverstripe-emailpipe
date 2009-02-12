@@ -1,0 +1,39 @@
+Message-ID: <46427F33.9020601@silverstripe.com>
+Date: Thu, 10 May 2007 14:10:59 +1200
+From: Sales Guy <salesguy@yourcompany.com>
+User-Agent: Thunderbird 2.0.0.0 (Windows/20070326)
+MIME-Version: 1.0
+To:  crmtest@silverstripe.com
+Subject: Fwd: Multipart Inline Forward
+Content-Type: multipart/alternative;
+ boundary="------------080206050905080409070306"
+
+This is a multi-part message in MIME format.
+--------------080206050905080409070306
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+
+This should be ignored
+
+------------ Forwarded message ------------
+From: John Client <work@clientcompany.com>
+Subject: Multipart Inline Forward
+Please send me a proposal!
+Here's a link: http://test.com
+
+--------------080206050905080409070306
+Content-Type: text/html; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+  <meta content="text/html;charset=ISO-8859-15"
+ http-equiv="Content-Type">
+</head>
+<body bgcolor="#ffffff" text="#000000">
+Please send me a proposal!<br>
+Here's a link: <a href="http://test.com">http://test.com</a>
+</body>
+</html>
+--------------080206050905080409070306--
