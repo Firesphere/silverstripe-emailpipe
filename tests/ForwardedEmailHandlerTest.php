@@ -27,9 +27,9 @@ class ForwardedEmailHandlerTest extends SapphireTest {
 	}
 
 	function testMultipartInlineForwardFromClient() {
-		$multipartMessageForwardFromClient = file_get_contents(Director::baseFolder() . '/emailpipe/tests/MultipartInlineForwardFromClient.eml');
+		$message = file_get_contents(Director::baseFolder() . '/emailpipe/tests/MultipartInlineForwardFromClient.eml');
 		
-		$_REQUEST['Message'] = $multipartMessageForwardFromClient;
+		$_REQUEST['Message'] = $message;
 		
 		$handler = new ForwardedEmailHandler();
 		$handler->index();
@@ -48,11 +48,31 @@ class ForwardedEmailHandlerTest extends SapphireTest {
 		unset($_REQUEST['Message']);
 	}
 	
-	function testMultipartNestedInlineForwardFromClient() {}
+	//function testMultipartNestedInlineForwardFromClient() {}
 	
-	function testMultipartBccToClient() {}
+	function testMultipartBccToClient() {
+		$message = file_get_contents(Director::baseFolder() . '/emailpipe/tests/MultipartBccToClient.eml');
+		
+		$_REQUEST['Message'] = $message;
+		
+		$handler = new ForwardedEmailHandler();
+		$handler->index();
+		
+		$newEmail = DataObject::get_one('ForwardedEmail', null, false, "Created DESC");
+		$this->assertNotNull($newEmail);
+		$this->assertEquals($newEmail->From, 'salesguy@yourcompany.com');
+		$this->assertEquals($newEmail->Subject, 'Multipart Bcc');
+		$this->assertEquals($newEmail->Body, "Hello Client!\n");
+		
+		$member = $this->objFromFixture('Member', 'johnclient');
+		$this->assertEquals($newEmail->TestRelatedMembers()->Count(), 1);
+		$relatedMember = $newEmail->TestRelatedMembers()->First();
+		$this->assertEquals($relatedMember->ID, $member->ID);
+		
+		unset($_REQUEST['Message']);
+	}
 	
-	function testHtmlOnlyForwardFromClient() {}
+	//function testHtmlOnlyForwardFromClient() {}
 }
 
 Object::add_extension('ForwardedEmail', 'ForwardedEmailHandlerTest_ForwardedEmailDecorator');

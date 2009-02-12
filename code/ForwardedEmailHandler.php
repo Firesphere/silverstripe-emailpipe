@@ -64,7 +64,7 @@ class ForwardedEmailHandler extends Controller {
 		$email = $decoder->decode(array('include_bodies'=>true,'decode_bodies'=>true));
 		
 		if(!self::is_valid_email($email)) return false;
-		
+
 		if(self::is_valid_email_handler_domain($email->headers['to'])) {
 			// Scenario 1: Forwarded Client Email
 			$this->processForwardedClientEmail($email);
@@ -87,19 +87,13 @@ class ForwardedEmailHandler extends Controller {
 	 * @param Object $email Object based on Mail_mimeDecode
 	 * @return ForwardedEmail
 	 */
-	function processForwardedClientEmail($email) {
-		/*
-		// Fix subject, removing unnecessary "re's" 
-		$subject = ereg_replace('^ *[Rr][Ee]:? *\[[^\]+\]','Re:', $subject);
-		$subject = ereg_replace('^ *[Rr][Ee]:? *[Rr][Ee]:?','Re:', $subject);
-		*/
-		
+	protected function processForwardedClientEmail($email) {
 		// @todo Authentication token checking on "to" field
 		
 		$plaintextPart = self::get_mimepart_by_type($email);
 		$forwardedEmail = self::parseForwardedEmailBody($plaintextPart->body);
 		$forwardedEmailBody = trim(self::reduce_quote_level($forwardedEmail->body));
-		$forwardedEmailSubject = self::remove_forward_prefix_from_subject($forwardedEmail->headers['subject']);
+		$forwardedEmailSubject = (isset($forwardedEmail->headers['subject'])) ? self::remove_forward_prefix_from_subject($forwardedEmail->headers['subject']) : '';
 
 		$emailClass = self::$email_class;
 		$emailObj = new $emailClass();
@@ -110,7 +104,7 @@ class ForwardedEmailHandler extends Controller {
 		foreach(self::$member_relation_search_fields as $fieldName) {
 			$member = DataObject::get_one(self::$member_relation_class, sprintf('"%s" = \'%s\'', $fieldName, $SQL_fromAddress));
 			$relationName = self::$member_relation_name;
-			$emailObj->$relationName()->add($member);
+			if($member) $emailObj->$relationName()->add($member);
 		}
 		
 		$emailObj->From = $SQL_fromAddress;
@@ -127,8 +121,25 @@ class ForwardedEmailHandler extends Controller {
 	 * 
 	 * @param Object $email Object based on Mail_mimeDecode
 	 */
-	function processBccClientEmail($email) {
+	protected function processBccClientEmail($email) {
+		$plaintextPart = self::get_mimepart_by_type($email);
+
+		$emailClass = self::$email_class;
+		$emailObj = new $emailClass();
+		$emailObj->write();
 		
+		// add members for all matched criteria
+		$SQL_fromAddress = Convert::raw2sql(self::get_address_for_emailpart($email->headers['to']));
+		foreach(self::$member_relation_search_fields as $fieldName) {
+			$member = DataObject::get_one(self::$member_relation_class, sprintf('"%s" = \'%s\'', $fieldName, $SQL_fromAddress));
+			$relationName = self::$member_relation_name;
+			if($member) $emailObj->$relationName()->add($member);
+		}
+		
+		$emailObj->From = self::get_address_for_emailpart($email->headers['from']);
+		$emailObj->Subject = (isset($email->headers['subject'])) ? $email->headers['subject'] : '';
+		$emailObj->Body = $plaintextPart->body;
+		$emailObj->write();
 	}
 	
 	/**
@@ -138,7 +149,7 @@ class ForwardedEmailHandler extends Controller {
 	 * @param string $emailBody
 	 * @return Object
 	 */
-	function parseForwardedEmailBody($emailBody) {
+	protected function parseForwardedEmailBody($emailBody) {
 		// Split original content from forwarded ones
 		$headers = array('From:', 'To:', 'Subject:');
 		$posFirstHeader = null;
@@ -162,12 +173,15 @@ class ForwardedEmailHandler extends Controller {
 	 * @return string
 	 */
     static function get_address_for_emailpart($emailAdress) {
-       if(strpos($emailAdress, '<') === false) return $emailAdress;
-       else {
-           ereg('<([^>]+)>|$', $emailAdress, $parts);
-           return $parts[1];
-        }
-    }
+		$emailAdress = trim($emailAdress);
+		
+		if(strpos($emailAdress, '<') === false) {
+			return $emailAdress;
+		} else {
+			ereg('<([^>]+)>|$', $emailAdress, $parts);
+			return $parts[1];
+		}
+	}
 
 	/**
 	 * Checks if the email address is a valid "handler",
@@ -181,7 +195,7 @@ class ForwardedEmailHandler extends Controller {
 	 */
 	static function is_valid_email_handler_domain($emailAddress) {
 		foreach(self::$email_handler_domains as $domain) {
-			if(strpos($emailAddress, $emailAddress) !== FALSE) return true;
+			if(strpos($emailAddress, $domain) !== FALSE) return true;
 		}
 		return false;
 	}
