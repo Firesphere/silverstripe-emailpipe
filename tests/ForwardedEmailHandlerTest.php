@@ -37,8 +37,11 @@ class ForwardedEmailHandlerTest extends SapphireTest {
 		$newEmail = DataObject::get_one('ForwardedEmail', null, false, "Created DESC");
 		$this->assertNotNull($newEmail);
 		$this->assertEquals($newEmail->From, 'work@clientcompany.com');
-		$this->assertEquals($newEmail->Subject, 'Multipart Inline Forward');
-		$this->assertEquals($newEmail->Body, "Please send me a proposal!\nHere's a link: http://test.com");
+		$this->assertEquals($newEmail->Subject, 'Multipart Inline Forward', "Subject doesn't contain 'Fwd:'");
+		$this->assertContains("Please send me a proposal!", $newEmail->Body, "Quoted text is retained in frowarded emails");
+		$this->assertContains("Here's a link: http://test.com", $newEmail->Body, "Header-like characters with colons are not removed");
+		$this->assertContains("> Should I send you a proposal?", $newEmail->Body, "Inline second level quotes are retained");
+		$this->assertNotContains("Skype:", $newEmail->Body, "Unquoted text is stripped from forwarded emails");
 		
 		$member = $this->objFromFixture('Member', 'johnclient');
 		$this->assertEquals($newEmail->TestRelatedMembers()->Count(), 1);

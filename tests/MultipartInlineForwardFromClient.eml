@@ -18,9 +18,12 @@ This should be ignored
 ------------ Forwarded message ------------
 From: John Client <work@clientcompany.com>
 Subject: Multipart Inline Forward
+> Please send me a proposal!
+> Here's a link: http://test.com
+>> Should I send you a proposal? 
 
-Please send me a proposal!
-Here's a link: http://test.com
+##### My Footer (should be ignored as well) #####
+Skype: myskype
 
 --------------080206050905080409070306
 Content-Type: text/html; charset=ISO-8859-15

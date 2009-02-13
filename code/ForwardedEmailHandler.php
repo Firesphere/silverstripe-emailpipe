@@ -58,6 +58,8 @@ class ForwardedEmailHandler extends Controller {
 	static $member_relation_search_fields = array('Email');
 	
 	function index() {
+		if(!isset($_REQUEST['Message'])) user_error('No Message given', E_USER_ERROR);
+		
 		// Process the mail, breaking down its multiple
 		$decoder = new Mail_mimeDecode($_REQUEST['Message']);
 		
@@ -90,9 +92,14 @@ class ForwardedEmailHandler extends Controller {
 	protected function processForwardedClientEmail($email) {
 		// @todo Authentication token checking on "to" field
 		
+		// get the full email body: original message including any forwarded parts
 		$plaintextPart = self::get_mimepart_by_type($email);
+		
+		// parse the forwarded email body from the full email message
 		$forwardedEmail = self::parseForwardedEmailBody($plaintextPart->body);
-		$forwardedEmailBody = trim(self::reduce_quote_level($forwardedEmail->body));
+		$forwardedEmailBody = $forwardedEmail->body;
+		
+		// remove 'Fwd:' in subject
 		$forwardedEmailSubject = (isset($forwardedEmail->headers['subject'])) ? self::remove_forward_prefix_from_subject($forwardedEmail->headers['subject']) : '';
 
 		$emailClass = self::$email_class;
@@ -107,6 +114,7 @@ class ForwardedEmailHandler extends Controller {
 			if($member) $emailObj->$relationName()->add($member);
 		}
 		
+		// write new email
 		$emailObj->From = $SQL_fromAddress;
 		$emailObj->Subject = $forwardedEmailSubject;
 		$emailObj->Body = $forwardedEmailBody;
@@ -122,6 +130,7 @@ class ForwardedEmailHandler extends Controller {
 	 * @param Object $email Object based on Mail_mimeDecode
 	 */
 	protected function processBccClientEmail($email) {
+		// simpler than forwarded messages: just get the email body and store it
 		$plaintextPart = self::get_mimepart_by_type($email);
 
 		$emailClass = self::$email_class;
@@ -150,6 +159,18 @@ class ForwardedEmailHandler extends Controller {
 	 * @return Object
 	 */
 	protected function parseForwardedEmailBody($emailBody) {
+		// if the original body contains quoted text, remove all unquoted text *after* the last quoted text.
+		// this limitation is necessary to avoid removing valid MIME header parts *before any quoted text
+		if(preg_match_all('/^\>.*\n/m', $emailBody, $matches, PREG_OFFSET_CAPTURE)) {
+			// find the last occurrence of '>' and remove all text after it (e.g. automatically added email footers)
+			$lastQuotedLineMatch = $matches[0][count($matches[0])-1];
+			$lastQuotedLineEndPos = $lastQuotedLineMatch[1] + strlen($lastQuotedLineMatch[0]);
+			$emailBody = substr($emailBody, 0, $lastQuotedLineEndPos);
+		}
+		
+		// reduce quote level (leading '>' character) to make header parsing work in Mail_mimeDecoder
+		$emailBody = trim(self::reduce_quote_level($emailBody));
+		
 		// Split original content from forwarded ones
 		$headers = array('From:', 'To:', 'Subject:');
 		$posFirstHeader = null;
@@ -162,8 +183,30 @@ class ForwardedEmailHandler extends Controller {
 		$originalEmailBody = substr($emailBody, 0, $posFirstHeader-1);
 		$forwardedEmailBody = substr($emailBody, $posFirstHeader, strlen($emailBody));
 
+		// Make sure there's a carriage return after the header - otherwise the email is not valid MIME format
+		// Ignore pseudo-headers from content onwards ($headerFinished), we had problems with footers like
+		// "Skype: chillu23, Address: ..."
+		$validForwardedEmailBody = '';
+		$headerFinished = false;
+		$insertedNewlines = false;
+		foreach(preg_split('/\n/', $forwardedEmailBody) as $line) {
+			// match header rows like "From: ingo@silverstripe.com"
+			if(!preg_match('/^\s*[a-zA-Z\-]*\:/', $line)) $headerFinished = true;
+			
+			if($headerFinished && !$insertedNewlines) {
+				// insert newlines *before* the content (previous match was last header row)
+				$validForwardedEmailBody .= "\r\n";
+				$insertedNewlines = true;
+			}
+			
+			$validForwardedEmailBody .= $line . "\n";
+		}
+		$forwardedEmailBody = $validForwardedEmailBody;
+
 		$decoder = new Mail_mimeDecode($forwardedEmailBody);
-		return $decoder->decode(array('include_bodies'=>true,'decode_bodies'=>true));
+		$forwardedEmail = $decoder->decode(array('include_bodies'=>true,'decode_bodies'=>true));
+		
+		return $forwardedEmail;
 	}
 	
 	/**
@@ -210,6 +253,13 @@ class ForwardedEmailHandler extends Controller {
 	 * @return boolean
 	 */
 	static function is_valid_email($email) {
+		foreach(array('from','to','subject') as $header) {
+			if(!isset($email->headers[$header])) {
+				user_error('Insufficient headers: "' . $header . '" missing', E_USER_WARNING);
+				return false;
+			}
+		}
+			
 		// Ignore delivery failure notifications
 		if(strpos(strtolower($email->headers['subject']), "mail delivery failed") !== false) return false;
 		
@@ -239,8 +289,19 @@ class ForwardedEmailHandler extends Controller {
 	 * @return string
 	 */
 	static function reduce_quote_level($str, $levels = 1) {
-		$replace = '>' * $levels;
-		return preg_replace('/^' . $replace . '/', '', $str);
+		$replace = str_repeat('>', $levels);
+		return preg_replace('/^' . $replace . '\s*/m', '', $str);
+	}
+	
+	/**
+	 * Remove all "unquoted" text from an email body, identified
+	 * by a lack of ">" characters at the beginning of the line.
+	 * 
+	 * @param string $str
+	 * @return string
+	 */
+	static function remove_unquoted_body($str) {
+		return preg_replace('/^[^>]\s*/m', '', $str);
 	}
 	
 	/**
