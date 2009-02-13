@@ -3,18 +3,17 @@
 /**
  * @package emailpipe
  */
-define('ERROR_ADDRESS', 'ingo@silverstripe.com');
-
 $url = $_SERVER['argv'][1];
+$errorEmail = $_SERVER['argv'][2];
 
 if($url) {
     $emailData = file_get_contents("php://stdin");
     if(!sendPostRequest($url, "Message=" . urlencode($emailData))) {
-        mail(ERROR_ADDRESS, "Couldn't post to URL $url in forwarder.php","");
+        mail($errorEmail, "Couldn't post to URL $url in forwarder.php","");
     }
 
 } else {
-    mail(ERROR_ADDRESS, "No URL given to forwarder.php","");
+    mail($errorEmail, "No URL given to forwarder.php","");
 }
 
 
@@ -53,7 +52,7 @@ function sendPostRequest($url, $data) {
 
      if(ereg("^HTTP/1.1 2", $response) && strpos($response, "\r\n\r\nOK") !== false) return true;
      else {
-         mail(ERROR_ADDRESS, "Forum post response", $response);
+         mail($errorEmail, "Forum post response", $response);
          return false;
      }
 }
