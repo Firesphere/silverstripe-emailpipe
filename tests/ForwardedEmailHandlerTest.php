@@ -51,8 +51,6 @@ class ForwardedEmailHandlerTest extends SapphireTest {
 		unset($_REQUEST['Message']);
 	}
 	
-	//function testMultipartNestedInlineForwardFromClient() {}
-	
 	function testMultipartBccToClient() {
 		$message = file_get_contents(Director::baseFolder() . '/emailpipe/tests/MultipartBccToClient.eml');
 		
@@ -74,8 +72,6 @@ class ForwardedEmailHandlerTest extends SapphireTest {
 		
 		unset($_REQUEST['Message']);
 	}
-	
-	//function testHtmlOnlyForwardFromClient() {}
 }
 
 Object::add_extension('ForwardedEmail', 'ForwardedEmailHandlerTest_ForwardedEmailDecorator');
