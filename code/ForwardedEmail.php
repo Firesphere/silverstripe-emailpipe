@@ -10,6 +10,12 @@ class ForwardedEmail extends DataObject {
 		'DateSent' => 'SSDateTime' // a forwarded email might've been sent long before it got forwarded into the system
 	);
 	
+	static $summary_fields = array(
+		'From',
+		'Subject',
+		'Body'
+	);
+	
 	/**
 	 * Assumes a belongs_many_many relationship decorated onto
 	 * the object specified in ForwardedEmailHandler::$member_relation_class.
