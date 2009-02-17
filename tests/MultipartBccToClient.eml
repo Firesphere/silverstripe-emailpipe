@@ -4,7 +4,7 @@ From: Sales Guy <salesguy@yourcompany.com>
 User-Agent: Thunderbird 2.0.0.0 (Windows/20070326)
 MIME-Version: 1.0
 To:  work@clientcompany.com
-Bcc:  crmtest@silverstripe.com
+Bcc:  Other Guy <otherguy@othercompany.com>, crmtest@silverstripe.com
 Subject: Multipart Bcc
 Content-Type: multipart/alternative;
  boundary="------------080206050905080409070306"
