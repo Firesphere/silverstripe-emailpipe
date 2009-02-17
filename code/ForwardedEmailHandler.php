@@ -20,9 +20,10 @@
  * @package emailpipe
  */
 require_once('../emailpipe/thirdparty/Mail_mimeDecode/Mail_mimeDecode.php');
-require_once('../emailpipe/code/ForwardedMail_mimeDecode.php');
 
 class ForwardedEmailHandler extends Controller {
+	
+	protected $_errors = array();
 	
 	/**
 	 * Domains which are valid email handlers for the system.
@@ -33,6 +34,11 @@ class ForwardedEmailHandler extends Controller {
 	 * @var string $email_handler_domain
 	 */
 	static $email_handler_domains = array();
+	
+	/**
+	 * @var string $email_sender_domains
+	 */
+	static $email_sender_domains = array();
 	
 	/**
 	 * @var string $email_class Subclass of ForwardedEmail.
@@ -65,15 +71,40 @@ class ForwardedEmailHandler extends Controller {
 		
 		$email = $decoder->decode(array('include_bodies'=>true,'decode_bodies'=>true));
 		
-		if(!self::is_valid_email($email)) return false;
+		if(!$this->isValidEmail($email)) {
+			if(isset($email->headers['from'])) {
+				$this->friendlyError($email->headers['from'], $email, "Can't parse email content");
+			}
+			user_error("ERROR: Invalid email: " . var_export($this->_errors, true) . "\n" . var_export($email, true), E_USER_ERROR);
+			return false;
+		}
 
-		if(self::is_valid_email_handler_domain($email->headers['to'])) {
+		// CAUTION: you can't use BCC saving if the 'to' recipient is in the valid
+		// email handlers as well (usually internal company communications with TO and BCC on the same domain)
+		if(isset($email->headers['to']) && $this->isValidEmailHandlerDomain($email->headers['to'])) {
 			// Scenario 1: Forwarded Client Email
 			$this->processForwardedClientEmail($email);
-		} elseif(self::is_valid_email_handler_domain($email->headers['bcc'])) {
+		} elseif(isset($email->headers['bcc']) && $this->isValidEmailHandlerDomain($email->headers['bcc'])) {
+			// Scenario 2: BCCing in Email to Client
+			$this->processBccClientEmail($email);
+		} elseif(isset($email->headers['cc']) && $this->isValidEmailHandlerDomain($email->headers['cc'])) {
 			// Scenario 2: BCCing in Email to Client
 			$this->processBccClientEmail($email);
 		} else {
+			if(isset($email->headers['from'])) {
+				$errorMessage = "No valid email address found in 'To' or 'Bcc' headers.\n";
+				if(isset($email->headers['to'])) $errorMessage .= "(To: " . $email->headers['to'] . ") \n";
+				if(isset($email->headers['cc'])) $errorMessage .= "(Cc: " . $email->headers['cc'] . ") \n";
+				if(isset($email->headers['bcc'])) $errorMessage .= "(Bcc: " . $email->headers['bcc'] . ") \n";
+				$errorMessage .= "Valid handler domains: " . implode(',', self::$email_handler_domains) . "\n";
+				$errorMessage .= "\n\n" . var_export($email->headers, true);
+				$this->friendlyError(
+					$email->headers['from'], 
+					$email, 
+					$errorMessage
+				);
+			}
+			user_error("ERROR: No valid handler found for email: " . var_export($email, true), E_USER_ERROR);
 			return false;
 		}
 		
@@ -106,12 +137,22 @@ class ForwardedEmailHandler extends Controller {
 		$emailObj = new $emailClass();
 		$emailObj->write();
 		
+		if(!isset($forwardedEmail->headers['from'])) return false;
+		
 		// add members for all matched criteria
 		$SQL_fromAddress = Convert::raw2sql(self::get_address_for_emailpart($forwardedEmail->headers['from']));
+		$hasFoundMember = false;
 		foreach(self::$member_relation_search_fields as $fieldName) {
 			$member = DataObject::get_one(self::$member_relation_class, sprintf('"%s" = \'%s\'', $fieldName, $SQL_fromAddress));
 			$relationName = self::$member_relation_name;
-			if($member) $emailObj->$relationName()->add($member);
+			if($member) {
+				$hasFoundMember = true;
+				$emailObj->$relationName()->add($member);
+			}
+		}
+		
+		if(!$hasFoundMember) {
+			user_error("Couldnt find matching member for {$SQL_fromAddress}", E_USER_ERROR);
 		}
 		
 		// write new email
@@ -130,21 +171,42 @@ class ForwardedEmailHandler extends Controller {
 	 * @param Object $email Object based on Mail_mimeDecode
 	 */
 	protected function processBccClientEmail($email) {
+		// check if the sender is allowed to forward emails in the first place
+		if(!$this->isValidEmailSender(self::get_address_for_emailpart($email->headers['from']))) {
+			$errorMsg = "Invalid sender address. Allowed domains: " . implode(',', self::$email_sender_domains);
+			$this->friendlyError($email->headers['from'], $email, $errorMsg);
+			user_error($errorMsg, E_USER_ERROR);
+			return false;
+		}
+		
 		// simpler than forwarded messages: just get the email body and store it
 		$plaintextPart = self::get_mimepart_by_type($email);
-
+		
 		$emailClass = self::$email_class;
 		$emailObj = new $emailClass();
 		$emailObj->write();
 		
 		// add members for all matched criteria
 		$SQL_fromAddress = Convert::raw2sql(self::get_address_for_emailpart($email->headers['to']));
+		$hasFoundMember = false;
 		foreach(self::$member_relation_search_fields as $fieldName) {
 			$member = DataObject::get_one(self::$member_relation_class, sprintf('"%s" = \'%s\'', $fieldName, $SQL_fromAddress));
 			$relationName = self::$member_relation_name;
-			if($member) $emailObj->$relationName()->add($member);
+			if($member) {
+				$hasFoundMember = true;
+				$emailObj->$relationName()->add($member);
+			}
 		}
-		
+
+		if(!$hasFoundMember) {
+			$errorMsg = "Couldnt find matching member for {$SQL_fromAddress}";
+			if(isset($email->headers['from'])) {
+				$this->friendlyError($email->headers['from'], $email, $errorMsg);
+			}
+			user_error($errorMsg, E_USER_ERROR);
+			return false;
+		}
+
 		$emailObj->From = self::get_address_for_emailpart($email->headers['from']);
 		$emailObj->Subject = (isset($email->headers['subject'])) ? $email->headers['subject'] : '';
 		$emailObj->Body = $plaintextPart->body;
@@ -210,6 +272,25 @@ class ForwardedEmailHandler extends Controller {
 	}
 	
 	/**
+	 * Send a friendly error to the original sender of a faulty email,
+	 * including the original email and an error message.
+	 * 
+	 * @param string $to
+	 * @param Object $email
+	 * @param string $message
+	 */
+	protected function friendlyError($to, $email, $message) {
+		$toAddress = self::get_address_for_emailpart($to);
+		$plaintextPart = self::get_mimepart_by_type($email);
+		$subject = "Can't process email '" . $email->headers['subject'] . "'";
+		$body = $message . "\n";
+		$body .= "\n-------------------- Original Email ---------------------\n";
+		$body .= ($plaintextPart) ? $plaintextPart->body : var_export($email, true);
+		$emailObj = new Email(Email::getAdminEmail(), $toAddress, $subject, $body);
+		$emailObj->sendPlain();
+	}
+	
+	/**
 	 * Decodes an email address, returning "sam@silverstripe.com" when given "Sam Minnee <sam@silverstripe.com>".
 	 * 
 	 * @param string $emailStr
@@ -236,8 +317,23 @@ class ForwardedEmailHandler extends Controller {
 	 * @param string
 	 * @return boolean
 	 */
-	static function is_valid_email_handler_domain($emailAddress) {
+	protected function isValidEmailHandlerDomain($emailAddress) {
 		foreach(self::$email_handler_domains as $domain) {
+			if(strpos($emailAddress, $domain) !== FALSE) return true;
+		}
+		return false;
+	}
+	
+	/**
+	 * Determines if a sender is allowed to forward or CC an email.
+	 * Should be usually restricted to the users of your application - currently
+	 * via domain matching only.
+	 * 
+	 * @param string
+	 * @return boolean
+	 */
+	protected function isValidEmailSender($emailAddress) {
+		foreach(self::$email_sender_domains as $domain) {
 			if(strpos($emailAddress, $domain) !== FALSE) return true;
 		}
 		return false;
@@ -252,18 +348,25 @@ class ForwardedEmailHandler extends Controller {
 	 * @param Object $email Object based on Mail_mimeDecode
 	 * @return boolean
 	 */
-	static function is_valid_email($email) {
+	protected function isValidEmail($email) {
 		foreach(array('from','to','subject') as $header) {
 			if(!isset($email->headers[$header])) {
-				user_error('Insufficient headers: "' . $header . '" missing', E_USER_WARNING);
+				$this->_errors[] = 'Insufficient headers: "' . $header . '" missing';
+				//user_error('Insufficient headers: "' . $header . '" missing', E_USER_WARNING);
 				return false;
 			}
 		}
 			
 		// Ignore delivery failure notifications
-		if(strpos(strtolower($email->headers['subject']), "mail delivery failed") !== false) return false;
+		if(strpos(strtolower($email->headers['subject']), "mail delivery failed") !== false) {
+			return false;
+		}
 		
 		$textPart = self::get_mimepart_by_type($email, 'text', 'plain');
+		if(!$textPart || !$textPart->body) {
+			$this->_errors[] = 'No Plaintext MIME part found';
+			return false;
+		}
 		
 		return ($textPart);
 	}
@@ -274,7 +377,8 @@ class ForwardedEmailHandler extends Controller {
 	 * @param string $secondaryType
 	 * @return Object
 	 */
-	static function get_mimepart_by_type($email, $primaryType = 'text', $secondaryType = 'plain') {
+	protected function get_mimepart_by_type($email, $primaryType = 'text', $secondaryType = 'plain') {
+		if(!isset($email->parts)) return false;
 		foreach($email->parts as $part) {
 			if($part->ctype_primary == $primaryType && $part->ctype_secondary == $secondaryType) {
 				return $part;
