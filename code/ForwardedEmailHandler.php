@@ -117,30 +117,61 @@ class ForwardedEmailHandler extends Controller {
 	 * - Use "From" as CRM user
 	 * - Use forwarded inline or attachement, and discard the body
 	 * 
+	 * @todo Authentication token checking on "to" field
+	 * 
 	 * @param Object $email Object based on Mail_mimeDecode
 	 * @return ForwardedEmail
 	 */
 	protected function processForwardedClientEmail($email) {
-		// @todo Authentication token checking on "to" field
+		$forwardedEmail = null;
+		$forwardedEmailHeaders = null;
+		$forwardedEmailBody = null;
 		
-		// get the full email body: original message including any forwarded parts
-		$plaintextPart = self::get_mimepart_by_type($email);
-		
-		// parse the forwarded email body from the full email message
-		$forwardedEmail = self::parseForwardedEmailBody($plaintextPart->body);
-		$forwardedEmailBody = $forwardedEmail->body;
-		
+		// determine if email is forwarded as an attachement or inline in the normal message body with ">" brackets
+		// Forwarded attachement emails usually have the following MIME block structure:
+		// Content-Type: multipart/mixed;
+		//   Content-Type: text/plain; (annotations for the forwarded message by sender, currently discarded)
+		//   Content-Type: message/rfc822; (the actual attachement)
+		//     Content-Type: multipart/alternative; (all parts of the attachement, including relevant headers)
+		//       Content-Type: text/plain; (the *actual* body, but without headers)
+		if($forwardedAttachmentPart = self::get_mimepart_by_type($email, 'message', 'rfc822')) {
+			if($forwardedMultipartPart = self::get_mimepart_by_type($forwardedAttachmentPart, 'multipart', 'alternative')) {
+				// if the attachement is multipart, take the body from its first text/plain inner part,
+				// but the header from the multipart "parent"
+				if($forwardedInnerMultipartPart = self::get_mimepart_by_type($forwardedMultipartPart, 'multipart', 'alternative')) {
+					$forwardedInnerTextPart = self::get_mimepart_by_type($forwardedInnerMultipartPart, 'text', 'plain');
+					$forwardedEmailBody = $forwardedInnerTextPart->body;
+					// should NOT be $forwardedInnerTextPart - the header info is contained in parent part
+					$forwardedEmailHeaders = $forwardedMultipartPart->headers;
+				} else {
+					$forwardedInnerTextPart = self::get_mimepart_by_type($forwardedMultipartPart, 'text', 'plain');
+					$forwardedEmailBody = $forwardedInnerTextPart->body;
+					$forwardedEmailHeaders = $forwardedMultipartPart->headers;
+				}
+			} else {
+				$forwardedTextPart = self::get_mimepart_by_type($forwardedAttachmentPart, 'text', 'plain');
+				$forwardedEmailBody = $forwardedTextPart->body;
+				$forwardedEmailHeaders = $forwardedTextPart->headers;
+			}
+		} else {
+			// fallback: get the full email body: original message including any forwarded parts
+			$plaintextPart = self::get_mimepart_by_type($email, 'text', 'plain');
+			$forwardedEmail = self::parseForwardedEmailBody($plaintextPart->body);
+			$forwardedEmailBody = $forwardedEmail->body;
+			$forwardedEmailHeaders = $forwardedEmail->headers;
+		}
+
 		// remove 'Fwd:' in subject
-		$forwardedEmailSubject = (isset($forwardedEmail->headers['subject'])) ? self::remove_forward_prefix_from_subject($forwardedEmail->headers['subject']) : '';
+		$forwardedEmailSubject = (isset($forwardedEmailHeaders['subject'])) ? self::remove_forward_prefix_from_subject($forwardedEmailHeaders['subject']) : '';
 
 		$emailClass = self::$email_class;
 		$emailObj = new $emailClass();
 		$emailObj->write();
 		
-		if(!isset($forwardedEmail->headers['from'])) return false;
+		if(!isset($forwardedEmailHeaders['from'])) return false;
 		
 		// add members for all matched criteria
-		$SQL_fromAddress = Convert::raw2sql(self::get_address_for_emailpart($forwardedEmail->headers['from']));
+		$SQL_fromAddress = Convert::raw2sql(self::get_address_for_emailpart($forwardedEmailHeaders['from']));
 		$hasFoundMember = false;
 		foreach(self::$member_relation_search_fields as $fieldName) {
 			$member = DataObject::get_one(self::$member_relation_class, sprintf('"%s" = \'%s\'', $fieldName, $SQL_fromAddress));
@@ -180,7 +211,7 @@ class ForwardedEmailHandler extends Controller {
 		}
 		
 		// simpler than forwarded messages: just get the email body and store it
-		$plaintextPart = self::get_mimepart_by_type($email);
+		$plaintextPart = self::get_mimepart_by_type($email, 'text', 'plain');
 		
 		$emailClass = self::$email_class;
 		$emailObj = new $emailClass();
@@ -281,7 +312,7 @@ class ForwardedEmailHandler extends Controller {
 	 */
 	protected function friendlyError($to, $email, $message) {
 		$toAddress = self::get_address_for_emailpart($to);
-		$plaintextPart = self::get_mimepart_by_type($email);
+		$plaintextPart = self::get_mimepart_by_type($email, 'text', 'plain');
 		$subject = "Can't process email '" . $email->headers['subject'] . "'";
 		$body = $message . "\n";
 		$body .= "\n-------------------- Original Email ---------------------\n";
@@ -319,7 +350,7 @@ class ForwardedEmailHandler extends Controller {
 	 */
 	protected function isValidEmailHandlerDomain($emailAddress) {
 		foreach(self::$email_handler_domains as $domain) {
-			if(strpos($emailAddress, $domain) !== FALSE) return true;
+			if(stripos($emailAddress, $domain) !== FALSE) return true;
 		}
 		return false;
 	}
@@ -334,7 +365,7 @@ class ForwardedEmailHandler extends Controller {
 	 */
 	protected function isValidEmailSender($emailAddress) {
 		foreach(self::$email_sender_domains as $domain) {
-			if(strpos($emailAddress, $domain) !== FALSE) return true;
+			if(stripos($emailAddress, $domain) !== FALSE) return true;
 		}
 		return false;
 	}
@@ -358,7 +389,7 @@ class ForwardedEmailHandler extends Controller {
 		}
 			
 		// Ignore delivery failure notifications
-		if(strpos(strtolower($email->headers['subject']), "mail delivery failed") !== false) {
+		if(stripos($email->headers['subject'], "mail delivery failed") !== false) {
 			return false;
 		}
 		
@@ -373,11 +404,11 @@ class ForwardedEmailHandler extends Controller {
 	
 	/**
 	 * @param Object $email Object based on Mail_mimeDecode
-	 * @param string $primaryType
-	 * @param string $secondaryType
+	 * @param string $primaryType E.g. "text"
+	 * @param string $secondaryType E.g. "plain"
 	 * @return Object
 	 */
-	protected function get_mimepart_by_type($email, $primaryType = 'text', $secondaryType = 'plain') {
+	protected function get_mimepart_by_type($email, $primaryType, $secondaryType) {
 		if(!isset($email->parts)) return false;
 		foreach($email->parts as $part) {
 			if($part->ctype_primary == $primaryType && $part->ctype_secondary == $secondaryType) {

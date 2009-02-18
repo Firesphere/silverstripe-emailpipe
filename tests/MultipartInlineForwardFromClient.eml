@@ -16,12 +16,13 @@ Content-Transfer-Encoding: 7bit
 This should be ignored
 
 ------------ Forwarded message ------------
-From: John Client <work@clientcompany.com>
-Subject: Multipart Inline Forward
-> Please send me a proposal!
-> Here's a link: http://test.com
->> Should I send you a proposal? 
-
+> From: John Client <work@clientcompany.com>
+> To: salesguy@yourcompany.com, otherlongemailaddress@yourcompany.com
+> Subject: Multipart Inline Forward
+>> Please send me a proposal!
+>> Here's a link: http://test.com
+>>> Should I send you a proposal? 
+  
 ##### My Footer (should be ignored as well) #####
 Skype: myskype
 

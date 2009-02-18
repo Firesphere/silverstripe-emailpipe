@@ -1,0 +1,54 @@
+Message-ID: <499B5AC8.7080700@silverstripe.com>
+Date: Wed, 18 Feb 2009 13:48:08 +1300
+From: Sales Guy <salesguy@yourcompany.com>
+User-Agent: Thunderbird 2.0.0.9 (Macintosh/20071031)
+MIME-Version: 1.0
+To: crmtest@silverstripe.com
+Subject: Fwd: Multipart Inline Forward
+Content-Type: multipart/mixed;
+ boundary="------------080203000403090506000400"
+
+This is a multi-part message in MIME format.
+--------------080203000403090506000400
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+
+This should be ignored
+
+##### My Footer (should be ignored as well) #####
+Skype: myskype
+
+
+--------------080203000403090506000400
+Content-Type: message/rfc822;
+ name="forward.eml"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="forward.eml"
+
+From John Client <work@clientcompany.com> Tue Feb 10 10:12:25 2009
+Return-path: <work@clientcompany.com>
+From: John Client <work@clientcompany.com>
+To: salesguy@yourcompany.com
+Content-Type: multipart/alternative; boundary=Apple-Mail-46-356180923
+Mime-Version: 1.0 (Apple Message framework v930.3)
+Subject: Multipart Inline Forward
+Date: Tue, 10 Feb 2009 10:12:14 +1300
+
+
+--Apple-Mail-46-356180923
+Content-Type: text/plain;
+	charset=US-ASCII;
+	format=flowed;
+	delsp=yes
+Content-Transfer-Encoding: 7bit
+
+Please send me a proposal!
+> Here's a link: http://test.com
+> Should I send you a proposal? 
+
+--Apple-Mail-46-356180923
+
+--------------080203000403090506000400--
+
+
