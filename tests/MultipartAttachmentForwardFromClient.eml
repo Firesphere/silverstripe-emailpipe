@@ -5,6 +5,7 @@ User-Agent: Thunderbird 2.0.0.9 (Macintosh/20071031)
 MIME-Version: 1.0
 To: crmtest@silverstripe.com
 Subject: Fwd: Multipart Inline Forward
+Message-Id: <outer@test>
 Content-Type: multipart/mixed;
  boundary="------------080203000403090506000400"
 
@@ -33,6 +34,7 @@ To: salesguy@yourcompany.com
 Content-Type: multipart/alternative; boundary=Apple-Mail-46-356180923
 Mime-Version: 1.0 (Apple Message framework v930.3)
 Subject: Multipart Inline Forward
+Message-Id: <inner@test>
 Date: Tue, 10 Feb 2009 10:12:14 +1300
 
 

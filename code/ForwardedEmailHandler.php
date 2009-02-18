@@ -16,6 +16,7 @@
  * @author Ingo Schommer, SilverStripe Ltd.
  * 
  * @todo Detect duplicate messages based on Message-Id MIME header
+ * @todo Save sent date
  * 
  * @package emailpipe
  */
@@ -189,7 +190,8 @@ class ForwardedEmailHandler extends Controller {
 		// write new email
 		$emailObj->From = $SQL_fromAddress;
 		$emailObj->Subject = $forwardedEmailSubject;
-		$emailObj->Body = $forwardedEmailBody;
+		$emailObj->Body = utf8_encode($forwardedEmailBody);
+		if(isset($forwardedEmailHeaders['message-id'])) $emailObj->MessageId = $forwardedEmailHeaders['message-id'];
 		$emailObj->write();
 	}
 	
@@ -240,7 +242,8 @@ class ForwardedEmailHandler extends Controller {
 
 		$emailObj->From = self::get_address_for_emailpart($email->headers['from']);
 		$emailObj->Subject = (isset($email->headers['subject'])) ? $email->headers['subject'] : '';
-		$emailObj->Body = $plaintextPart->body;
+		$emailObj->Body = utf8_encode($plaintextPart->body);
+		if(isset($plaintextPart->headers['message-id'])) $emailObj->MessageId = $plaintextPart->headers['message-id'];
 		$emailObj->write();
 	}
 	

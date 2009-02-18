@@ -37,8 +37,21 @@ class ForwardedEmailHandlerTest extends SapphireTest {
 		$handler->index();
 		
 		$newEmail = DataObject::get_one('ForwardedEmail', null, false, "Created DESC");
-		$this->assertContains("Bäcker", $newEmail->Body, "Umlauts are properly encoded with 'quoted-printable' plaintext");
+		// database fields store utf8 by default
+		$this->assertContains("Bäcker", utf8_decode($newEmail->Body), "Umlauts are properly encoded with 'quoted-printable' plaintext");
 		$this->assertContains("link= http", $newEmail->Body, "Equal signs are properly encoded with 'quoted-printable' plaintext");
+	}
+	
+	function testMessageId() {
+		$message = file_get_contents(Director::baseFolder() . '/emailpipe/tests/MultipartAttachmentForwardFromClient.eml');
+		
+		$_REQUEST['Message'] = $message;
+		
+		$handler = new ForwardedEmailHandler();
+		$handler->index();
+		
+		$newEmail = DataObject::get_one('ForwardedEmail', null, false, "Created DESC");
+		$this->assertEquals("<inner@test>", $newEmail->MessageId, "Message ID gets detected for inner email body");
 	}
 
 	function testMultipartAttachementForwardFromClient() {
