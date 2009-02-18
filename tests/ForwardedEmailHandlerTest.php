@@ -38,6 +38,7 @@ class ForwardedEmailHandlerTest extends SapphireTest {
 		
 		$newEmail = DataObject::get_one('ForwardedEmail', null, false, "Created DESC");
 		$this->assertContains("Bäcker", $newEmail->Body, "Umlauts are properly encoded with 'quoted-printable' plaintext");
+		$this->assertContains("link= http", $newEmail->Body, "Equal signs are properly encoded with 'quoted-printable' plaintext");
 	}
 
 	function testMultipartAttachementForwardFromClient() {
