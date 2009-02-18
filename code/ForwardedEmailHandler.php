@@ -156,7 +156,7 @@ class ForwardedEmailHandler extends Controller {
 		} else {
 			// fallback: get the full email body: original message including any forwarded parts
 			$plaintextPart = self::get_mimepart_by_type($email, 'text', 'plain');
-			$forwardedEmail = self::parseForwardedEmailBody($plaintextPart->body);
+			$forwardedEmail = self::parseForwardedEmailBody($plaintextPart);
 			$forwardedEmailBody = $forwardedEmail->body;
 			$forwardedEmailHeaders = $forwardedEmail->headers;
 		}
@@ -251,7 +251,9 @@ class ForwardedEmailHandler extends Controller {
 	 * @param string $emailBody
 	 * @return Object
 	 */
-	protected function parseForwardedEmailBody($emailBody) {
+	protected function parseForwardedEmailBody($email) {
+		$emailBody = $email->body;
+		
 		// if the original body contains quoted text, remove all unquoted text *after* the last quoted text.
 		// this limitation is necessary to avoid removing valid MIME header parts *before any quoted text
 		if(preg_match_all('/^\>.*\n/m', $emailBody, $matches, PREG_OFFSET_CAPTURE)) {
@@ -265,6 +267,7 @@ class ForwardedEmailHandler extends Controller {
 		$emailBody = trim(self::reduce_quote_level($emailBody));
 		
 		// Split original content from forwarded ones
+		// @todo Fragile detection, as it leaves out other headers
 		$headers = array('From:', 'To:', 'Subject:');
 		$posFirstHeader = null;
 		foreach($headers as $header) {
@@ -287,6 +290,14 @@ class ForwardedEmailHandler extends Controller {
 			if(!preg_match('/^\s*[a-zA-Z\-]*\:/', $line)) $headerFinished = true;
 			
 			if($headerFinished && !$insertedNewlines) {
+				// add encoding from parent container - otherwise 'quoted-printable' will be interpreted as '7bit'
+				if(isset($email->headers['content-type'])) {
+					$validForwardedEmailBody .= "Content-Type: " . $email->headers['content-type'] . "\n";
+				}
+				if(isset($email->headers['content-transfer-encoding'])) {
+					$validForwardedEmailBody .= "Content-Transfer-Encoding: " . $email->headers['content-transfer-encoding'] . "\n";
+				}
+				
 				// insert newlines *before* the content (previous match was last header row)
 				$validForwardedEmailBody .= "\r\n";
 				$insertedNewlines = true;
@@ -294,11 +305,12 @@ class ForwardedEmailHandler extends Controller {
 			
 			$validForwardedEmailBody .= $line . "\n";
 		}
+		
 		$forwardedEmailBody = $validForwardedEmailBody;
 
 		$decoder = new Mail_mimeDecode($forwardedEmailBody);
 		$forwardedEmail = $decoder->decode(array('include_bodies'=>true,'decode_bodies'=>true));
-		
+
 		return $forwardedEmail;
 	}
 	

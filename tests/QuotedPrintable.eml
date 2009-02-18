@@ -1,0 +1,25 @@
+Message-ID: <46427F33.9020601@silverstripe.com>
+Date: Thu, 10 May 2007 14:10:59 +1200
+From: Sales Guy <salesguy@yourcompany.com>
+User-Agent: Thunderbird 2.0.0.0 (Windows/20070326)
+MIME-Version: 1.0
+To:  crmtest@silverstripe.com
+Subject: Fwd: Multipart Inline Forward
+Content-Type: multipart/mixed;
+ boundary="------------080206050905080409070306"
+
+--------------080206050905080409070306
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: quoted-printable
+
+This should be ignored
+
+------------ Forwarded message ------------
+> From: John Client <work@clientcompany.com>
+> To: salesguy@yourcompany.com, otherlongemailaddress@yourcompany.com
+> Subject: Multipart Inline Forward
+>> Please send me a proposal!
+>> B=C3=A4cker. Here's a link: http://test.com
+>>> Should I send you a proposal? 
+
+--------------080206050905080409070306

@@ -26,6 +26,19 @@ class ForwardedEmailHandlerTest extends SapphireTest {
 		
 		parent::tearDown();
 	}
+	
+	
+	function testCharacterEncoding() {
+		$message = file_get_contents(Director::baseFolder() . '/emailpipe/tests/QuotedPrintable.eml');
+		
+		$_REQUEST['Message'] = $message;
+		
+		$handler = new ForwardedEmailHandler();
+		$handler->index();
+		
+		$newEmail = DataObject::get_one('ForwardedEmail', null, false, "Created DESC");
+		$this->assertContains("Bäcker", $newEmail->Body, "Umlauts are properly encoded with 'quoted-printable' plaintext");
+	}
 
 	function testMultipartAttachementForwardFromClient() {
 		$message = file_get_contents(Director::baseFolder() . '/emailpipe/tests/MultipartAttachmentForwardFromClient.eml');
