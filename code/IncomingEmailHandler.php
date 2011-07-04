@@ -4,15 +4,13 @@
  * Generic incoming email handler.
  *
  * Sub-class and define processEmail() to set up different email handlers for your sites.
- * 
- * Then point incomingEmailHandler.php at this file.  This is a script stored in P:\kristovScripts, and is designed to be
- * fed by an exim pipe command.  It takes 1 argument, which is the URL of the handler class, for example,
- * http://test.silverstripe.com/kcommunity/ForumEmailHandler
+ * It is designed to be fed by an exim pipe command.  
+ * It takes 1 argument, which is the URL of the handler class.
  * 
  * The mailserver-side script will take the raw content of the email and post it to the handler as $_POST['Message'].
  * IncomingEmailHandler then breaks the message down, finds the plain text body, and posts it to processEmail.
  *
- * Currently $attachments and $headers aren't working.
+ * @todo Currently $attachments and $headers aren't working.
  */
  
 abstract class IncomingEmailHandler extends Controller {

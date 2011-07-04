@@ -1,5 +1,8 @@
 # Email Pipe Module #
 
+*Caution: This module hasn't been actively used or maintained in a while,
+and should be regarded as a starting point rather than a complete solution.*
+
 Emulates [basecamphq.com](http://help.37signals.com/basecamp/questions/198-can-i-email-a-message-to-basecamp)
 style email forwarding to store against a member database, typically in a CRM context.
 
@@ -21,9 +24,9 @@ TODO Document email pipe setup for various mailservers
 
 # Configuration #
 
-	ForwardedEmailHandler::$member_relation_class = 'MyMember';
+	ForwardedEmailHandler::$member_relation_class = 'Member';
 	ForwardedEmailHandler::$member_relation_search_fields = array('WorkEmail','HomeEmail');
 	ForwardedEmailHandler::$email_handler_domains = array('mydomain.com');
 	ForwardedEmailHandler::$email_sender_domains = array('mydomain.com');
 	Object::add_extension('ForwardedEmail', 'ForwardedEmailDecorator');
-	Object::add_extension('MyMember', 'ForwardedEmailMemberRole');
+	Object::add_extension('Member', 'ForwardedEmailMemberRole');
