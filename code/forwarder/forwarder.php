@@ -1,5 +1,5 @@
 #!/usr/bin/php5 -q
-<?
+<?php
 /**
  * Place this in your mailserver and point the pipe to it.
  * 
