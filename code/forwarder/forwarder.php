@@ -9,6 +9,11 @@
  * </code>
  * Change <admin-email> to an email address which should receive errors caused by this script.
  * 
+ * 
+ * Example for Postfix (in /etc/postfix/forwarder.php):
+ * in /etc/aliases add:
+ * <email-target>: "| php /etc/postfix/forwarder.php http://www.yourdomain.com/helpdesk.php <admin-email>"
+ * 
  * You can test the script run with the following procedure:
  * <code>
  * cd /<your-webroot>/emailpipe/code/forwarder
