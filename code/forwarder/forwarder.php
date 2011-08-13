@@ -55,7 +55,7 @@ function sendPostRequest($url, $data) {
 	
 	$urlParts = parse_url($url);
 
-	if(!$urlParts) {
+        if(!$urlParts) {
 		$errors[] = 'Cant parse URL: ' . $url;
 		return false;
 	}
@@ -87,9 +87,9 @@ function sendPostRequest($url, $data) {
 		$response .= fgets($fp, 128);
 	}
 	fclose($fp);
-
-	// check for a 2xx response and the string OK
-	if(ereg("^HTTP/1.1 2", $response) && strpos($response, "\r\n\r\nOK") !== false) {
+	
+        // check for a 2xx response and the string OK
+	if(ereg("^HTTP/1.1 2", $response) && strpos($response, "OK") !== false) {
 		return true;
 	} else {
 		$errors[] = "ERROR: Email forward failed in {$url}. {$response}";
