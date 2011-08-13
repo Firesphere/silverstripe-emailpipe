@@ -24,10 +24,26 @@ abstract class IncomingEmailHandler extends Controller {
 	    
 	    if($parts[0]) {
 	        $mainPart = $parts[0];
+                $attachment = array();
 	        foreach($parts as $part) {
+                    if(isset($part['content-disposition']) && strpos($part['content-disposition'], 'attachment') !== false) {
+                            $filepart = $part['content-disposition'];
+                            $filename = substr($filepart, (strpos($filepart, '=') + 1));
+                            $filename = str_replace('"', '', $filename);
+//                            $filename = $filename[1];
+                            $fp = fopen('../assets/Uploads/mailattachments/' . $filename, 'w');
+                            // write body
+                            fwrite($fp, base64_decode($part['body']));
+                            // close file
+                            fclose($fp);
+                            $attachment['location'] = '../assets/Uploads/mailattachments' . $filename;
+                            $type = explode($part['content-type'], ';');
+                            $attachment['type'] = $type[0];
+                            $attachment['name'] = $filename;
+                    }
 	            if(strpos($part['content-type'], 'text/plain') !== false) {
 	                $textPart = $part;
-	                break;
+//	                break;
 	            }
 	        }
 	    
@@ -39,8 +55,8 @@ abstract class IncomingEmailHandler extends Controller {
 	    $from = $mainPart['from'];
 	    $subject = $mainPart['subject'];
 	    $body = $textPart['body'];
-	    
-	    $this->processEmail($from, $to, $subject, $body, null, $mainPart);
+            $attachment = $attachment;
+            $this->processEmail($from, $to, $subject, $body, $attachment, $mainPart);
 	    
 	    echo "OK";
 	}
@@ -55,7 +71,7 @@ abstract class IncomingEmailHandler extends Controller {
     	$email = $this->readEmail($emailData);
 
     	// If we have a .eml attachment just get the contents of the attachment
-    	if(substr($email['content-type'],0,14) == "message/rfc822") {
+    	if(isset($email['content-type']) && substr($email['content-type'],0,14) == "message/rfc822") {
     		$email = $this->readEmail($email[body]);
     //		echo $indent . "Ignoring .eml wrapper\n"; 
     	}
@@ -74,7 +90,7 @@ abstract class IncomingEmailHandler extends Controller {
     	if(substr($email['content-type'],0,10) == "multipart/" && (ereg('boundary="([^"]+)"', $email['content-type'], $parts) || ereg('boundary=([^ ]+)', $email['content-type'], $parts))) {
     		$boundary = $parts[1];
 
-    		$multiparts = explode($boundary, $email[body]);
+    		$multiparts = explode($boundary, $email['body']);
     		// Remove the first part - it's junk anyway
     		array_shift($multiparts);
 
@@ -100,7 +116,7 @@ abstract class IncomingEmailHandler extends Controller {
     function readEmail($emailData) {
     	// Remove leading whitespace
     	$emailData = ereg_replace("^[\t\r\n ]+", "", $emailData);
-
+        $email = array();
     	list($headers, $email['body']) = split("(\n\r?){2}", $emailData, 2);
     	$headers = split("(\n\r?)", trim($headers));
 
@@ -117,7 +133,7 @@ abstract class IncomingEmailHandler extends Controller {
     				$mostRecentHeader = &$email[$headerName][sizeof($email[$headerName])-1];
 
     			// Second header added with this name; we must turn a string header into an array
-    			} else if($email[$headerName]) {
+    			} elseif(isset($email[$headerName])) {
     				$email[$headerName] = array(
     					$email[$headerName], 
     					$headerValue
@@ -132,17 +148,19 @@ abstract class IncomingEmailHandler extends Controller {
 
 
     		// Second line of a multiline header
-    		} else if($mostRecentHeader && $header[0] =="\t" || $header[0] == " ") {
+    		} else if(isset($mostRecentHeader) && $header[0] =="\t" || $header[0] == " ") {
     			$mostRecentHeader .= ' ' . trim($header);
     		}
     	}
 
     	// Handle content transfer encoding
-    	switch(strtolower($email['content-transfer-encoding'])) {
-    		case 'quoted-printable':
-    			$email['body'] = preg_replace('/=([A-Za-z0-9]{2})/e', 'chr(hexdec("$1"))', $email['body']);
-    			break;
-    	}
+        if(isset($email['content-transfer-encoding'])) {
+            switch(strtolower($email['content-transfer-encoding'])) {
+                    case 'quoted-printable':
+                            $email['body'] = preg_replace('/=([A-Za-z0-9]{2})/e', 'chr(hexdec("$1"))', $email['body']);
+                            break;
+            }
+        }
 
     	return $email;
     }
