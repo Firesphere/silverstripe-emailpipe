@@ -42,7 +42,7 @@ abstract class IncomingEmailHandler extends Controller {
                             $attachment['type'] = $type[0];
                             $attachment['name'] = $filename;
                     }
-	            if(strpos($part['content-type'], 'text/plain') !== false) {
+	            if(strpos($part['content-type'], 'text/plain') !== false && !isset($textPart)) {
 	                $textPart = $part;
 //	                break;
 	            }
