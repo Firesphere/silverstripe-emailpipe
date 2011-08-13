@@ -27,6 +27,7 @@ abstract class IncomingEmailHandler extends Controller {
                 $attachment = array();
 	        foreach($parts as $part) {
                     if(isset($part['content-disposition']) && strpos($part['content-disposition'], 'attachment') !== false) {
+                            //Sub-optimal e-mail handling.
                             $filepart = $part['content-disposition'];
                             $filename = substr($filepart, (strpos($filepart, '=') + 1));
                             $filename = str_replace('"', '', $filename);
