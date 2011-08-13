@@ -10,7 +10,7 @@
  * The mailserver-side script will take the raw content of the email and post it to the handler as $_POST['Message'].
  * IncomingEmailHandler then breaks the message down, finds the plain text body, and posts it to processEmail.
  *
- * @todo Currently $attachments and $headers aren't working.
+ * @todo $headers aren't working.
  */
  
 abstract class IncomingEmailHandler extends Controller {
@@ -26,6 +26,7 @@ abstract class IncomingEmailHandler extends Controller {
 	        $mainPart = $parts[0];
                 $attachment = array();
 	        foreach($parts as $part) {
+                    // This should solve the attachment handling. It's quite rudimentary.
                     if(isset($part['content-disposition']) && strpos($part['content-disposition'], 'attachment') !== false) {
                             $filepart = $part['content-disposition'];
                             $filename = substr($filepart, (strpos($filepart, '=') + 1));
