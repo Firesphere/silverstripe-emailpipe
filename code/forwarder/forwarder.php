@@ -1,4 +1,4 @@
-#!/usr/bin/php5
+#!/usr/bin/php5 -q
 <?php
 /**
  * Place this in your mailserver and point the pipe to it.
@@ -30,9 +30,9 @@ $debug = (isset($_SERVER['argv'][3]) && $_SERVER['argv'][3]);
 $errors = array();
 
 if($url) {
-	$emailData = file_get_contents("php://stdin");
-	if(!sendPostRequest($url, "Message=" . urlencode($emailData))) {
-		if($debug) {
+        $emailData = file_get_contents("php://stdin");
+        if(!sendPostRequest($url, "Message=" . urlencode($emailData))) {
+                if($debug) {
 			echo "Errors:\n\n" . var_export($errors, true) . "\n\nMessage:\n" . $emailData;
 		} else {
 			mail(
@@ -100,4 +100,3 @@ function sendPostRequest($url, $data) {
 		return false;
 	}
 }
-?>
