@@ -1,4 +1,4 @@
-#!/usr/bin/php5 -q
+#!/usr/bin/php5
 <?php
 /**
  * Place this in your mailserver and point the pipe to it.
@@ -8,6 +8,10 @@
  * pipe "/<local-absolute-path-to-script>/forwarder.php http://<yourwebsite>/ForwardedEmailHandler <admin-email>"
  * </code>
  * Change <admin-email> to an email address which should receive errors caused by this script.
+ * 
+ * Example for Postfix (in /etc/postfix/forwarder.php):
+ * in /etc/aliases add:
+ * <email-target>: "| php /etc/postfix/forwarder.php http://www.yourdomain.com/helpdesk.php <admin-email>"
  * 
  * You can test the script run with the following procedure:
  * <code>
@@ -55,7 +59,7 @@ function sendPostRequest($url, $data) {
 	
 	$urlParts = parse_url($url);
 
-	if(!$urlParts) {
+        if(!$urlParts) {
 		$errors[] = 'Cant parse URL: ' . $url;
 		return false;
 	}
@@ -87,9 +91,9 @@ function sendPostRequest($url, $data) {
 		$response .= fgets($fp, 128);
 	}
 	fclose($fp);
-
-	// check for a 2xx response and the string OK
-	if(ereg("^HTTP/1.1 2", $response) && strpos($response, "\r\n\r\nOK") !== false) {
+	
+        // check for a 2xx response and the string OK
+	if(ereg("^HTTP/1.1 2", $response) && strpos($response, "OK") !== false) {
 		return true;
 	} else {
 		$errors[] = "ERROR: Email forward failed in {$url}. {$response}";
