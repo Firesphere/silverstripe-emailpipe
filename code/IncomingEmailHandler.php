@@ -70,18 +70,14 @@ abstract class IncomingEmailHandler extends Controller {
     	// If we have a .eml attachment just get the contents of the attachment
     	if(isset($email['content-type']) && substr($email['content-type'],0,14) == "message/rfc822") {
     		$email = $this->readEmail($email[body]);
-    //		echo $indent . "Ignoring .eml wrapper\n"; 
     	}
 
-    //	echo $indent . "loaded " . $email['content-type'] . "\n";
 
     	if(!$limitToContentType || !$email['content-type'] || (substr(strtolower($email['content-type']),0,strlen($limitToContentType)) == $limitToContentType)) {
     		$emailParts[] = $email;
-    //		echo $indent . " - Saved\n";
     	}
 
 
-    //	unset($parts[sizeof($parts)-1][body]);
 
     	// Do we have multiparts?
     	if(substr($email['content-type'],0,10) == "multipart/" && (ereg('boundary="([^"]+)"', $email['content-type'], $parts) || ereg('boundary=([^ ]+)', $email['content-type'], $parts))) {
