@@ -4,8 +4,10 @@
  * Generic incoming email handler.
  *
  * Sub-class and define processEmail() to set up different email handlers for your sites.
- * It is designed to be fed by an exim pipe command.  
- * It takes 1 argument, which is the URL of the handler class.
+ * 
+ * Then point incomingEmailHandler.php at this file.  This is a script stored in P:\kristovScripts, and is designed to be
+ * fed by an exim pipe command.  It takes 1 argument, which is the URL of the handler class, for example,
+ * http://test.silverstripe.com/kcommunity/ForumEmailHandler
  * 
  * The mailserver-side script will take the raw content of the email and post it to the handler as $_POST['Message'].
  * IncomingEmailHandler then breaks the message down, finds the plain text body, and posts it to processEmail.
@@ -26,23 +28,17 @@ abstract class IncomingEmailHandler extends Controller {
 	        $mainPart = $parts[0];
                 $attachment = array();
 	        foreach($parts as $part) {
-                    if(isset($part['content-disposition']) && strpos($part['content-disposition'], 'attachment') !== false) {
-                            //Sub-optimal e-mail handling.
-                            $filepart = $part['content-disposition'];
-                            $filename = substr($filepart, (strpos($filepart, '=') + 1));
-                            $filename = str_replace('"', '', $filename);
-//                            $filename = $filename[1];
-                            $fp = fopen('../assets/Uploads/mailattachments/' . $filename, 'w');
-                            // write body
-                            fwrite($fp, base64_decode($part['body']));
-                            // close file
-                            fclose($fp);
-                            $attachment['location'] = '../assets/Uploads/mailattachments' . $filename;
-                            $type = explode($part['content-type'], ';');
-                            $attachment['type'] = $type[0];
-                            $attachment['name'] = $filename;
+                    /**
+                     * Handling for just 1 attachment! Multiple attachments require some testing and extensive coding.
+                     */
+                    if((isset($part['content-disposition'])) && (strpos($part['content-disposition'], 'attachment') !== false) && (!count($attachment)) ) {
+                        $attachment = $this->AttachmentHandler($part);
                     }
-	            if(strpos($part['content-type'], 'text/plain') !== false) {
+                    /**
+                     * Don't break anymore, since we could have other things, like attachments.
+                     * Just check if the textPart isn't set yet.
+                     */
+	            if(strpos($part['content-type'], 'text/plain') !== false && !isset($textPart)) {
 	                $textPart = $part;
 //	                break;
 	            }
@@ -56,7 +52,7 @@ abstract class IncomingEmailHandler extends Controller {
 	    $from = $mainPart['from'];
 	    $subject = $mainPart['subject'];
 	    $body = $textPart['body'];
-            $attachment = $attachment;
+
             $this->processEmail($from, $to, $subject, $body, $attachment, $mainPart);
 	    
 	    echo "OK";
@@ -175,6 +171,38 @@ abstract class IncomingEmailHandler extends Controller {
            ereg('<([^>]+)>|$', $email, $parts);
            return $parts[1];
         }
+    }
+    
+    /**
+     * Handling of attachments. Files will be written to /tmp and can be fetched in the user's sub-class.
+     * @param type $part Part of the e-mail that has a content-disposition
+     * @return type array
+     */
+    function AttachmentHandler($part){
+        // Get the filename. Shouldn't this be a regex?
+        $filepart = $part['content-disposition'];
+        $filename = substr($filepart, (strpos($filepart, '=') + 1));
+        $filename = str_replace('"', '', $filename);
+
+        // Open the file (hopefully), as writable.
+        if($fp = fopen('/tmp/mailattachments/' . $filename, 'w')){
+            // write body, decode it according to MIME-to-File base64
+            fwrite($fp, base64_decode($part['body']));
+            // close file and feel good about yourself
+            fclose($fp);
+            
+            // Write the data to the return-array.
+            $type = explode($part['content-type'], ';');
+            $attachment['status'] = true;
+            $attachment['location'] = '/tmp/mailattachments' . $filename;
+            $attachment['type'] = $type[0];
+            $attachment['name'] = $filename;
+        }
+        else{
+            //Ouch, something went terribly wrong. Status is false!
+            $attachment['status'] = false;
+        }
+        return $attachment;
     }
     
 }

@@ -127,14 +127,14 @@ class ForwardedEmailHandler extends Controller {
 		$forwardedEmail = null;
 		$forwardedEmailHeaders = null;
 		$forwardedEmailBody = null;
-		
-		// determine if email is forwarded as an attachement or inline in the normal message body with ">" brackets
+
+                // determine if email is forwarded as an attachement or inline in the normal message body with ">" brackets
 		// Forwarded attachement emails usually have the following MIME block structure:
 		// Content-Type: multipart/mixed;
-		//   Content-Type: text/plain; (annotations for the forwarded message by sender, currently discarded)
-		//   Content-Type: message/rfc822; (the actual attachement)
-		//     Content-Type: multipart/alternative; (all parts of the attachement, including relevant headers)
-		//       Content-Type: text/plain; (the *actual* body, but without headers)
+		// Content-Type: text/plain; (annotations for the forwarded message by sender, currently discarded)
+		// Content-Type: message/rfc822; (the actual attachement)
+		// Content-Type: multipart/alternative; (all parts of the attachement, including relevant headers)
+		// Content-Type: text/plain; (the *actual* body, but without headers)
 		if($forwardedAttachmentPart = self::get_mimepart_by_type($email, 'message', 'rfc822')) {
 			if($forwardedMultipartPart = self::get_mimepart_by_type($forwardedAttachmentPart, 'multipart', 'alternative')) {
 				// if the attachement is multipart, take the body from its first text/plain inner part,
