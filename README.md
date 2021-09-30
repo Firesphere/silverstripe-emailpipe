@@ -1,7 +1,6 @@
 # Email Pipe Module #
 
-*Caution: This module hasn't been actively used or maintained in a while,
-and should be regarded as a starting point rather than a complete solution.*
+*Caution: This module hasnot been actively used or maintained in a while & should be regarded as a starting point rather than a complete solution.*
 
 Emulates [basecamphq.com](http://help.37signals.com/basecamp/questions/198-can-i-email-a-message-to-basecamp)
 style email forwarding to store against a member database, typically in a CRM context.
