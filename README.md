@@ -26,7 +26,7 @@ TODO Document email pipe setup for various mailservers
 
 	ForwardedEmailHandler::$member_relation_class = 'Member';
 	ForwardedEmailHandler::$member_relation_search_fields = array('WorkEmail','HomeEmail');
-	ForwardedEmailHandler::$email_handler_domains = array('mydomain.com');
-	ForwardedEmailHandler::$email_sender_domains = array('mydomain.com');
+	ForwardedEmailHandler::$email_handler_domains = array('anydomain.com');
+	ForwardedEmailHandler::$email_sender_domains = array('anydomain.com');
 	Object::add_extension('ForwardedEmail', 'ForwardedEmailDecorator');
 	Object::add_extension('Member', 'ForwardedEmailMemberRole');
