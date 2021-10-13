@@ -7,7 +7,7 @@ class ForwardedEmail extends DataObject {
 		'From' => 'Text', // contains original "From" value, please use "Members" relation to determine related members to this email
 		'Subject' => 'Text',
 		'Body' => 'Text',
-		'DateSent' => 'SS_DateTime', // a forwarded email might have been sent long before it got forwarded into the system
+		'DateSent' => 'SS_DateTime', // a forwarded email might have been sent long before it got forwarded into the system.
 		'MessageId' => 'Text', // the MIME message ID - can be used to identify duplicates
 	);
 	
